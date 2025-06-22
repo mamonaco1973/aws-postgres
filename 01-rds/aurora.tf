@@ -9,7 +9,7 @@ resource "aws_rds_cluster" "aurora_cluster" {
   engine = "aurora-postgresql"
 
   # Version must explicitly support Serverless v2
-  engine_version = "15.4"
+  engine_version = "15.12"
 
   # Serverless v2 requires engine_mode to be "provisioned"
   engine_mode = "provisioned"
@@ -94,8 +94,8 @@ resource "aws_db_subnet_group" "aurora_subnet_group" {
 
   # List of private subnets to deploy the Aurora ENIs into
   subnet_ids = [
-    aws_subnet.rds-subnet-1.id, # Example: subnet in us-east-1a
-    aws_subnet.rds-subnet-2.id  # Example: subnet in us-east-1b
+    aws_subnet.rds-subnet-1.id,
+    aws_subnet.rds-subnet-2.id
   ]
 
   tags = {

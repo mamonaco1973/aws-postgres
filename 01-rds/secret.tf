@@ -10,7 +10,8 @@ resource "random_password" "aurora_password" {
 
 # Define a new Secrets Manager secret to store RDS credentials
 resource "aws_secretsmanager_secret" "aurora_credentials" {
-  name = "aurora-credentials" # Logical name for the secret in AWS Secrets Manager
+  name                    = "aurora-credentials" # Logical name for the secret in AWS Secrets Manager
+  recovery_window_in_days = 0
 }
 
 # Store the actual credential values in the secret (versioned)
@@ -32,7 +33,8 @@ resource "random_password" "postgres_password" {
 
 # Define a new Secrets Manager secret to store RDS credentials
 resource "aws_secretsmanager_secret" "postgres_credentials" {
-  name = "postgres-credentials" # Logical name for the secret in AWS Secrets Manager
+  name                    = "postgres-credentials" # Logical name for the secret in AWS Secrets Manager
+  recovery_window_in_days = 0
 }
 
 # Store the actual credential values in the secret (versioned)
