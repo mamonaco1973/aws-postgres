@@ -37,4 +37,30 @@ PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d postgres -f ./01-r
 PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-schema.sql >> /tmp/db_load.log
 PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-data.sql >> /tmp/db_load.log
 
+RDS_ENDPOINT=$(aws rds describe-db-instances \
+  --region us-east-2 \
+  --db-instance-identifier postgres-rds-instance \
+  --query "DBInstances[0].Endpoint.Address" \
+  --output text)
 
+echo "NOTE: Primary RDS Endpoint: $RDS_ENDPOINT"
+
+# Name of the secret created in Terraform
+SECRET_NAME="postgres-credentials"
+
+# Retrieve and parse the secret
+SECRET_JSON=$(aws secretsmanager get-secret-value \
+  --region "$AWS_REGION" \
+  --secret-id "$SECRET_NAME" \
+  --query 'SecretString' \
+  --output text)
+
+# Extract user and password using jq
+USER=$(echo "$SECRET_JSON" | jq -r .user)
+PASSWORD=$(echo "$SECRET_JSON" | jq -r .password)
+
+echo "NOTE: Loading 'pagila' data into RDS"
+
+PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d postgres -f ./01-rds/data/pagila-db.sql >> /tmp/db_load.log
+PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-schema.sql >> /tmp/db_load.log
+PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-data.sql >> /tmp/db_load.log
