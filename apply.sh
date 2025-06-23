@@ -38,3 +38,10 @@ terraform apply -auto-approve
 
 # Return to the root directory
 cd ..
+
+############################################
+# STEP 3: VALIDATE AND LOAD PAGILA DATA
+############################################
+
+./validate.sh
+
