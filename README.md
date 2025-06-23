@@ -6,7 +6,6 @@
 * [An AWS Account](https://aws.amazon.com/console/)
 * [Install AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
 * [Install Latest Terraform](https://developer.hashicorp.com/terraform/install)
-* [Install Latest Packer](https://developer.hashicorp.com/packer/install)
 
 If this is your first time watching our content, we recommend starting with this video: [AWS + Terraform: Easy Setup](https://youtu.be/BCMQo0CB9wk). It provides a step-by-step guide to properly configure Terraform, Packer, and the AWS CLI.
 
@@ -14,7 +13,7 @@ If this is your first time watching our content, we recommend starting with this
 
 ```bash
 git clone https://github.com/mamonaco1973/aws-postgres.git
-cd aws-packer
+cd aws-postgres
 ```
 
 ## Build the Code
