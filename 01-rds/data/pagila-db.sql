@@ -1,0 +1,2 @@
+DROP DATABASE pagila;
+CREATE DATABASE pagila;
