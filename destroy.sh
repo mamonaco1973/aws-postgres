@@ -7,14 +7,6 @@
 # Export the AWS region to ensure all AWS CLI commands run in the correct context
 export AWS_DEFAULT_REGION="us-east-2"
 
-aws secretsmanager delete-secret \
-  --secret-id "aurora-credentials" \
-  --force-delete-without-recovery
-
-aws secretsmanager delete-secret \
-  --secret-id "postgres-credentials" \
-  --force-delete-without-recovery
-
 ############################################
 # STEP 1: DESTROY RDS INSTANCES
 ############################################

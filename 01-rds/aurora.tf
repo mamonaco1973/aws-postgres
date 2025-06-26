@@ -48,7 +48,7 @@ resource "aws_rds_cluster" "aurora_cluster" {
 #####################################################
 resource "aws_rds_cluster_instance" "aurora_instance_primary" {
   # Unique identifier for the DB instance
-  identifier = "aurora-postgres-instance-primary"
+  identifier = "aurora-postgres-instance-writer"
 
   # Link to the RDS cluster defined above
   cluster_identifier = aws_rds_cluster.aurora_cluster.id
@@ -75,7 +75,7 @@ resource "aws_rds_cluster_instance" "aurora_instance_primary" {
 # This enables Multi-AZ failover and read scaling    #
 ######################################################
 resource "aws_rds_cluster_instance" "aurora_instance_replica" {
-  identifier                   = "aurora-postgres-instance-replica"
+  identifier                   = "aurora-postgres-instance-reader"
   cluster_identifier           = aws_rds_cluster.aurora_cluster.id
   instance_class               = "db.serverless"
   engine                       = aws_rds_cluster.aurora_cluster.engine
