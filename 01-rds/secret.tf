@@ -20,9 +20,10 @@ resource "aws_secretsmanager_secret_version" "aurora_credentials_version" {
 
   # Encode credentials as a JSON string and store as the secret value
   secret_string = jsonencode({
-    user     = "postgres"                              # Static username for the Packer user
-    password = random_password.aurora_password.result  # Dynamic, securely generated password
-    endpoint = aws_rds_cluster.aurora_cluster.endpoint # Primary database endpoint
+    user            = "postgres"                             # Static username for the Packer user
+    password        = random_password.aurora_password.result # Dynamic, securely generated password
+    endpoint        = split(":", aws_rds_cluster.aurora_cluster.endpoint)[0]
+    reader_endpoint = split(":", aws_rds_cluster.aurora_cluster.reader_endpoint)[0]
   })
 }
 
@@ -46,6 +47,7 @@ resource "aws_secretsmanager_secret_version" "postgres_credentials_version" {
   secret_string = jsonencode({
     user     = "postgres"                             # Static username for the Packer user
     password = random_password.aurora_password.result # Dynamic, securely generated password
-    endpoint = aws_db_instance.postgres_rds.endpoint  # Primary database endpoint
+    endpoint = split(":", aws_db_instance.postgres_rds.endpoint)[0]
+    replica_endpoint = split(":", aws_db_instance.postgres_rds.replica_endpoint)[0] 
   })
 }
