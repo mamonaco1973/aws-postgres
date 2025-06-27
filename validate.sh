@@ -61,6 +61,6 @@ PASSWORD=$(echo "$SECRET_JSON" | jq -r .password)
 
 echo "NOTE: Loading 'pagila' data into RDS"
 
-PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d postgres -f ./01-rds/data/pagila-db.sql >> /tmp/db_load.log
-PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-schema.sql >> /tmp/db_load.log
-PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-data.sql >> /tmp/db_load.log
+PGPASSWORD=$PASSWORD psql -h $RDS_ENDPOINT -U postgres -d postgres -f ./01-rds/data/pagila-db.sql >> /tmp/db_load.log
+PGPASSWORD=$PASSWORD psql -h $RDS_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-schema.sql >> /tmp/db_load.log
+PGPASSWORD=$PASSWORD psql -h $RDS_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-data.sql >> /tmp/db_load.log
