@@ -168,6 +168,7 @@ After applying the Terraform scripts, the following AWS resources will be create
 
 ## pgAdmin4 Demo
 
+![pgadmin](pgadmin.png)
 
 Query 1:
 ```sql
