@@ -30,61 +30,17 @@ When deploying PostgreSQL on AWS, Amazon RDS for PostgreSQL and Amazon Aurora Po
 
 ## Key Differences
 
-### 1. Architecture and Storage
+| **Aspect**                     | **Amazon RDS for PostgreSQL**                                                                                                    | **Amazon Aurora PostgreSQL-Compatible**                                                                                                                |
+|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
+| **Architecture and Storage**   | Standard PostgreSQL with EBS storage; storage provisioned manually (up to 64 TB) and scaling may involve downtime               | Distributed storage across multiple AZs; auto-scaling up to 128 TB with no downtime                                                                    |
+| **Performance**                | Reliable for standard workloads; limited by EBS and single-instance architecture                                                | Up to 5× throughput; features like parallel query execution                                                                                             |
+| **High Availability & Replication** | Multi-AZ deployments; failover in 60–120 seconds; asynchronous read replicas                                                     | Faster failover (<30 s); up to 15 low-latency read replicas; Aurora Global Database for cross-region replication                                        |
+| **Scalability**                | Vertical scaling and read replicas; storage scaling may involve downtime                                                        | Seamless compute and storage scaling; Aurora Serverless supports variable workloads                                                                     |
+| **Cost**                       | More affordable for smaller, predictable workloads                                                                              | Higher cost reflecting advanced performance; Aurora Serverless can reduce costs for variable usage                                                     |
+| **Features & Compatibility**   | Full PostgreSQL compatibility with most extensions                                                                              | PostgreSQL-compatible but may lack some extensions; unique features such as Backtrack and parallel query                                               |
+| **Backup & Recovery**          | Automated backups (up to 35 days) and point-in-time recovery; slower restores for large databases                               | Faster backups and restores; Backtrack enables near-instant point-in-time recovery                                                                     |
+| **Use Cases**                  | Best for cost-conscious, general-purpose workloads and development environments                                                 | Ideal for high-performance, mission-critical workloads; Serverless option for variable demand                                                          |
 
-- **RDS**: Uses standard PostgreSQL with EBS storage. Storage is provisioned manually (up to 64 TB) and scales with potential downtime.
-- **Aurora**: Features distributed storage across multiple Availability Zones (AZs), auto-scaling up to 128 TB without downtime.
-
-**Takeaway**: Aurora offers greater scalability and resilience.
-
-### 2. Performance
-
-- **RDS**: Reliable for standard workloads but limited by EBS and single-instance architecture.
-- **Aurora**: Delivers up to 5x the throughput of RDS with features like parallel query execution.
-
-**Takeaway**: Aurora excels in high-throughput scenarios.
-
-### 3. High Availability and Replication
-
-- **RDS**: Multi-AZ setups with 60–120 second failover; read replicas use asynchronous replication.
-- **Aurora**: Faster failover (<30 seconds), supports up to 15 low-latency read replicas, and offers Aurora Global Database for cross-region replication.
-
-**Takeaway**: Aurora provides better availability and replication options.
-
-### 4. Scalability
-
-- **RDS**: Supports vertical scaling and read replicas; storage scaling may involve downtime.
-- **Aurora**: Scales compute and storage seamlessly, with Aurora Serverless for variable workloads.
-
-**Takeaway**: Aurora is more flexible for dynamic scaling.
-
-### 5. Cost
-
-- **RDS**: More affordable for smaller, predictable workloads.
-- **Aurora**: Higher cost for enhanced performance; Aurora Serverless can reduce costs for variable usage.
-
-**Takeaway**: RDS is cost-effective; Aurora’s price reflects its advanced features.
-
-### 6. Features and Compatibility
-
-- **RDS**: Full PostgreSQL compatibility with most extensions.
-- **Aurora**: PostgreSQL-compatible but may lack some extensions; offers unique features like backtrack and parallel query.
-
-**Takeaway**: RDS prioritizes compatibility; Aurora adds cloud-native features.
-
-### 7. Backup and Recovery
-
-- **RDS**: Automated backups (up to 35 days) and point-in-time recovery; restores can be slow for large databases.
-- **Aurora**: Faster backups and restores; backtrack enables quick point-in-time recovery.
-
-**Takeaway**: Aurora offers faster, more flexible recovery.
-
-### 8. Use Cases
-
-- **RDS**: Best for cost-conscious, general-purpose applications or development environments.
-- **Aurora**: Ideal for high-performance, mission-critical applications or variable workloads (with Serverless).
-
-**Takeaway**: RDS suits simpler needs; Aurora excels in demanding scenarios.
 
 ## Choosing the Right Service
 
