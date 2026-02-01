@@ -13,7 +13,7 @@
 # via the AWS Security Token Service (STS).
 # --------------------------------------------------------------------------------
 resource "aws_iam_role" "ec2_ssm_role" {
-  name = "EC2SSMRole-PHPMyAdmin"
+  name = "EC2SSMRole-PGWeb-Admin"
 
   # Trust policy allowing EC2 instances to assume this IAM role
   assume_role_policy = jsonencode({
@@ -63,6 +63,6 @@ resource "aws_iam_role_policy_attachment" "attach_ssm_parameter_policy" {
 # instances, enabling the role to be attached at launch time.
 # --------------------------------------------------------------------------------
 resource "aws_iam_instance_profile" "ec2_ssm_profile" {
-  name = "EC2SSMProfile-PHPMyAdmin"
+  name = "EC2SSMProfile-PGWeb-Admin"
   role = aws_iam_role.ec2_ssm_role.name
 }

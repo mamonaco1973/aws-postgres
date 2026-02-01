@@ -84,11 +84,11 @@ resource "aws_instance" "pgweb-instance" {
     AURORA_ENDPOINT = split(":", aws_rds_cluster.aurora_cluster.endpoint)[0]
     AURORA_USER     = "postgres"
     AURORA_PASSWORD = random_password.aurora_password.result
-    AURORA_PORT     = 3306
+    AURORA_PORT     = 5432
     RDS_ENDPOINT    = split(":", aws_db_instance.postgres_rds.endpoint)[0]
     RDS_USER        = "postgres"
     RDS_PASSWORD    = random_password.postgres_password.result
-    RDS_PORT        = 3306
+    RDS_PORT        = 5432
   })
 
   # ----------------------------------------------------------------------------
