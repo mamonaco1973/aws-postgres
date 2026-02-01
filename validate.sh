@@ -72,6 +72,22 @@ if [[ -z "${PGWEB_PUBLIC_DNS}" || "${PGWEB_PUBLIC_DNS}" == "None" ]]; then
   exit 1
 fi
 
+# Cluster identifier from your Terraform
+CLUSTER_ID="aurora-postgres-cluster"
+
+# Get the primary endpoint (writer) from the cluster description
+AURORA_ENDPOINT=$(aws rds describe-db-clusters \
+  --region "$AWS_REGION" \
+  --db-cluster-identifier "$CLUSTER_ID" \
+  --query 'DBClusters[0].Endpoint' \
+  --output text)
+
+RDS_ENDPOINT=$(aws rds describe-db-instances \
+  --region us-east-2 \
+  --db-instance-identifier postgres-rds-instance \
+  --query "DBInstances[0].Endpoint.Address" \
+  --output text
+
 # ------------------------------------------------------------------------------
 # DISPLAY RESULTS
 # ------------------------------------------------------------------------------
@@ -80,7 +96,13 @@ echo "==========================================================================
 echo " PROJECT ENDPOINTS"
 echo "=========================================================================="
 echo
-echo " PGWEB:"
+echo " PGWEB Application:"
 echo "   http://${PGWEB_PUBLIC_DNS}"
+echo
+echo " RDS Instance:"
+echo "   ${RDS_ENPOINT}"
+echo
+echo " Aurora Instance:"
+echo "   ${AURORA_ENDPOINT}"
 echo
 echo "=========================================================================="
