@@ -81,7 +81,7 @@ resource "aws_instance" "pgweb-instance" {
   # Credentials and endpoints are injected at boot time.
   # ----------------------------------------------------------------------------
   user_data = templatefile("${path.module}/scripts/install-pgweb.sh", {
-    AURORA_ENDPOINT = split(":", aws_db_instance.aurora_rds.endpoint)[0]
+    AURORA_ENDPOINT = split(":", aws_rds_cluster.aurora_cluster.endpoint)[0]
     AURORA_USER     = "postgres"
     AURORA_PASSWORD = random_password.aurora_password.result
     AURORA_PORT     = 3306
