@@ -15,7 +15,7 @@ resource "aws_db_instance" "postgres_rds" {
 
   # PostgreSQL engine version supported by AWS - if blank default 
   # version is used
-  
+
   # engine_version = "15.12"
 
   # Instance class sized for low-cost dev and test workloads

@@ -22,7 +22,7 @@ resource "random_password" "aurora_password" {
 # Define a Secrets Manager secret for Aurora credentials
 resource "aws_secretsmanager_secret" "aurora_credentials" {
   name                    = "aurora-credentials"
-  description = "root credentials for example Aurora Postgres Instance"
+  description             = "root credentials for example Aurora Postgres Instance"
   recovery_window_in_days = 0
 }
 
@@ -32,7 +32,7 @@ resource "aws_secretsmanager_secret_version" "aurora_credentials_version" {
 
   # Encode credentials as JSON for downstream consumers
   secret_string = jsonencode({
-    user     = "postgres"                              # Static database username
+    user     = "postgres"                             # Static database username
     password = random_password.aurora_password.result # Generated password
     endpoint = split(":", aws_rds_cluster.aurora_cluster.endpoint)[0]
   })
@@ -55,7 +55,7 @@ resource "random_password" "postgres_password" {
 # Define a Secrets Manager secret for RDS credentials
 resource "aws_secretsmanager_secret" "postgres_credentials" {
   name                    = "postgres-credentials"
-  description = "root credentials for example RDS Postgres Instance"
+  description             = "root credentials for example RDS Postgres Instance"
   recovery_window_in_days = 0
 }
 
