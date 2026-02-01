@@ -25,7 +25,7 @@ echo "NOTE: Validating that required commands are found in your PATH."
 # List of commands required for this project to function correctly.
 # ------------------------------------------------------------------------------
 
-commands=("aws" "psql" "terraform" "jq")
+commands=("aws" "terraform" "jq")
 
 # Flag indicating whether all required commands were found
 all_found=true

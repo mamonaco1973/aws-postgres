@@ -55,6 +55,7 @@ export PGENDPOINT="${AURORA_ENDPOINT}"
 # ------------------------------------------------------------------------------
 # Load the database, schema, and data into Aurora. All output is logged.
 # ------------------------------------------------------------------------------
+echo "NOTE: Loading Aurora Test Database..." >> /root/db_load.log 2>&1
 
 PGPASSWORD=$PGPASSWORD psql -h $PGENDPOINT -U postgres -d postgres \
   -f pagila-db.sql >> /root/db_load.log 2>&1
@@ -81,6 +82,8 @@ export PGENDPOINT="${RDS_ENDPOINT}"
 # Load the database, schema, and data into standalone RDS. All output is logged.
 # ------------------------------------------------------------------------------
 
+echo "NOTE: Loading RDS Test Database..." >> /root/db_load.log 2>&1
+
 PGPASSWORD=$PGPASSWORD psql -h $PGENDPOINT -U postgres -d postgres \
   -f pagila-db.sql >> /root/db_load.log 2>&1
 
@@ -96,8 +99,9 @@ PGPASSWORD=$PGPASSWORD psql -h $PGENDPOINT -U postgres -d pagila \
 # Download and install pgweb, then configure it to run as a systemd service.
 # ------------------------------------------------------------------------------
 
+cd /tmp
 wget https://github.com/sosedoff/pgweb/releases/download/v0.11.12/pgweb_linux_amd64.zip
-unzip pgweb_linux_amd64.zip
+unzip pgweb_linux_amd64.zip >> /root/pgweb.log 2>&1
 chmod +x pgweb_linux_amd64
 sudo mv pgweb_linux_amd64 /usr/local/bin/pgweb
 
@@ -155,4 +159,4 @@ systemctl daemon-reexec
 systemctl daemon-reload
 systemctl enable pgweb
 systemctl start pgweb
-systemctl status pgweb | cat >> /root/db_load.log 2>&1
+systemctl status pgweb | cat >> /root/pgweb.log 2>&1
