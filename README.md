@@ -157,13 +157,13 @@ provisioned.
 
 ### Validation Output
 - A helper validation script resolves and prints:
-  - The public pgweb URL
+  - The public [pgweb](https://github.com/sosedoff/pgweb) URL
   - The RDS PostgreSQL endpoint
   - The Aurora PostgreSQL cluster endpoint
 
 ## Test Clients
 
-A lightweight test EC2 instance is deployed with pgweb, a minimal web-based client for interacting with PostgreSQL databases.
+A lightweight test EC2 instance is deployed with [pgweb](https://github.com/sosedoff/pgweb), a minimal web-based client for interacting with PostgreSQL databases.
 
 ![pgadmin](pgweb.png)
 
