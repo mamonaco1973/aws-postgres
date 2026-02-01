@@ -14,7 +14,7 @@ You’ll deploy:
 - A standalone PostgreSQL instance using Amazon RDS  
 - A highly available PostgreSQL cluster using Amazon Aurora  
 
-To make the environment instantly testable, the project also loads the
+To make the environment instantly testable with [pgweb](https://github.com/sosedoff/pgweb), the project also loads the
 [Pagila](https://www.postgresql.org/ftp/projects/pgFoundry/dbsamples/pagila/)
 sample database—a realistic PostgreSQL dataset based on a fictional DVD rental
 store—so you can validate connectivity, run queries, and explore the database
