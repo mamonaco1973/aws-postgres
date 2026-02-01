@@ -1,25 +1,42 @@
 #!/bin/bash
+# ==============================================================================
+# FILE: destroy.sh
+# ==============================================================================
+# ORCHESTRATION SCRIPT: RDS TEARDOWN
+# ==============================================================================
+# Destroys all RDS-related infrastructure provisioned by Terraform.
+#
+# High-level flow:
+#   1) Set the AWS default region for CLI and Terraform.
+#   2) Initialize Terraform in the RDS workspace.
+#   3) Destroy all managed RDS resources non-interactively.
+#
+# Notes:
+# - This script assumes the infrastructure was created via Terraform.
+# - Resources are destroyed without confirmation using auto-approve.
+# ==============================================================================
 
-############################################
-# SET DEFAULT AWS REGION
-############################################
-
-# Export the AWS region to ensure all AWS CLI commands run in the correct context
+# ==============================================================================
+# SET AWS DEFAULT REGION
+# ==============================================================================
+# Export the AWS region used by Terraform and AWS CLI commands.
+# ==============================================================================
 export AWS_DEFAULT_REGION="us-east-2"
 
-############################################
-# STEP 1: DESTROY RDS INSTANCES
-############################################
+# ==============================================================================
+# STEP 1: DESTROY RDS INFRASTRUCTURE
+# ==============================================================================
+# Tear down all RDS and related resources managed by Terraform.
+# ==============================================================================
 
-# Navigate into the Terraform directory for EC2 deployment
+# Change into the Terraform working directory.
 cd 01-rds
 
-# Initialize Terraform backend and provider plugins (safe for destroy)
+# Initialize Terraform backend and providers.
 terraform init
 
-# Destroy all RDS instances and related resources provisioned by Terraform
-terraform destroy -auto-approve  # Auto-approve skips manual confirmation prompts
+# Destroy Terraform-managed resources non-interactively.
+terraform destroy -auto-approve
 
-# Return to root directory after RDS teardown
+# Return to the project root directory.
 cd ..
-

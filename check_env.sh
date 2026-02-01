@@ -1,13 +1,36 @@
 #!/bin/bash
+# ==============================================================================
+# FILE: check_env.sh
+# ==============================================================================
+# ENVIRONMENT VALIDATION SCRIPT
+# ==============================================================================
+# Validates that all required CLI tools are available in the PATH and that
+# AWS credentials are configured correctly before running Terraform.
+#
+# High-level flow:
+#   1) Verify required commands exist in PATH.
+#   2) Fail fast if any command is missing.
+#   3) Validate AWS CLI authentication using STS.
+#
+# Notes:
+# - This script is intentionally verbose to aid troubleshooting.
+# - Any failure causes the script to exit with a non-zero status.
+# ==============================================================================
 
 echo "NOTE: Validating that required commands are found in your PATH."
-# List of required commands
+
+# ------------------------------------------------------------------------------
+# REQUIRED COMMAND CHECK
+# ------------------------------------------------------------------------------
+# List of commands required for this project to function correctly.
+# ------------------------------------------------------------------------------
+
 commands=("aws" "psql" "terraform" "jq")
 
-# Flag to track if all commands are found
+# Flag indicating whether all required commands were found
 all_found=true
 
-# Iterate through each command and check if it's available
+# Iterate through required commands and verify availability
 for cmd in "${commands[@]}"; do
   if ! command -v "$cmd" &> /dev/null; then
     echo "ERROR: $cmd is not found in the current PATH."
@@ -17,23 +40,34 @@ for cmd in "${commands[@]}"; do
   fi
 done
 
-# Final status
+# ------------------------------------------------------------------------------
+# COMMAND VALIDATION RESULT
+# ------------------------------------------------------------------------------
+# Abort execution if any required command is missing.
+# ------------------------------------------------------------------------------
+
 if [ "$all_found" = true ]; then
   echo "NOTE: All required commands are available."
 else
-  echo "ERROR: One or more commands are missing."
+  echo "ERROR: One or more required commands are missing."
   exit 1
 fi
 
-echo "NOTE: Checking AWS cli connection."
+# ------------------------------------------------------------------------------
+# AWS AUTHENTICATION CHECK
+# ------------------------------------------------------------------------------
+# Validate AWS CLI authentication using STS.
+# ------------------------------------------------------------------------------
+
+echo "NOTE: Checking AWS CLI connection."
 
 aws sts get-caller-identity --query "Account" --output text >> /dev/null
 
-# Check the return code of the login command
+# Abort execution if AWS authentication fails.
 if [ $? -ne 0 ]; then
-  echo "ERROR: Failed to connect to AWS. Please check your credentials and environment variables."
+  echo "ERROR: Failed to connect to AWS."
+  echo "ERROR: Check credentials and environment variables."
   exit 1
 else
-  echo "NOTE: Successfully logged into AWS."
+  echo "NOTE: Successfully authenticated to AWS."
 fi
-

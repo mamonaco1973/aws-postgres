@@ -1,98 +1,145 @@
-##############################################
-# RDS Cluster Definition (Aurora PostgreSQL) #
-##############################################
+# ===============================================================================
+# AURORA POSTGRESQL CLUSTER (SERVERLESS V2)
+# ===============================================================================
+# Defines an Aurora PostgreSQL cluster using Serverless v2 capacity
+# scaling. Serverless v2 requires the provisioned engine mode.
+# ===============================================================================
+
 resource "aws_rds_cluster" "aurora_cluster" {
-  # Logical name for the cluster
+
+  # -----------------------------------------------------------------------------
+  # IDENTIFICATION
+  # -----------------------------------------------------------------------------
+  # Logical identifier for the Aurora PostgreSQL cluster
   cluster_identifier = "aurora-postgres-cluster"
 
-  # Use the Aurora PostgreSQL engine
+  # -----------------------------------------------------------------------------
+  # ENGINE CONFIGURATION
+  # -----------------------------------------------------------------------------
+  # Aurora PostgreSQL-compatible database engine
   engine = "aurora-postgresql"
 
-  # Version must explicitly support Serverless v2
+  # Engine version supporting Aurora Serverless v2
   engine_version = "15.12"
 
-  # Serverless v2 requires engine_mode to be "provisioned"
+  # Serverless v2 requires provisioned engine mode
   engine_mode = "provisioned"
 
-  # Default DB name created in the cluster
+  # -----------------------------------------------------------------------------
+  # DATABASE INITIALIZATION
+  # -----------------------------------------------------------------------------
+  # Default database created during cluster initialization
   database_name = "postgres"
 
-  # Master credentials — store password securely or generate it
+  # Master credentials for the cluster
   master_username = "postgres"
   master_password = random_password.aurora_password.result
 
-  # Subnet group — must span at least 2 AZs for Multi-AZ support
+  # -----------------------------------------------------------------------------
+  # NETWORKING
+  # -----------------------------------------------------------------------------
+  # Subnet group spanning multiple availability zones
   db_subnet_group_name = aws_db_subnet_group.aurora_subnet_group.name
 
-  # Attach security group(s) to control inbound/outbound traffic
+  # Security groups controlling cluster network access
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
-  # Don't force a final snapshot when destroying the cluster (be careful!)
+  # -----------------------------------------------------------------------------
+  # BACKUP AND LIFECYCLE
+  # -----------------------------------------------------------------------------
+  # Disable final snapshot on destroy (unsafe for production)
   skip_final_snapshot = true
 
-  # How long to retain backups (in days)
+  # Number of days to retain automated backups
   backup_retention_period = 5
 
-  # Preferred backup window (UTC time)
+  # Preferred backup window in UTC
   preferred_backup_window = "07:00-09:00"
 
-  # ✅ Serverless v2 auto-scaling config — ACUs (Aurora Capacity Units)
+  # -----------------------------------------------------------------------------
+  # SERVERLESS V2 SCALING
+  # -----------------------------------------------------------------------------
+  # Aurora Capacity Units (ACUs) auto-scaling configuration
   serverlessv2_scaling_configuration {
-    min_capacity = 0.5 # Minimum: 0.5 ACUs
-    max_capacity = 4.0 # Maximum: 4 ACUs (scale up automatically under load)
+    min_capacity = 0.5
+    max_capacity = 4.0
   }
 }
 
-#####################################################
-# PRIMARY INSTANCE — Writer for the Aurora Cluster #
-#####################################################
+# ===============================================================================
+# AURORA CLUSTER INSTANCE - PRIMARY (WRITER)
+# ===============================================================================
+# Primary writer instance for the Aurora PostgreSQL cluster.
+# ===============================================================================
+
 resource "aws_rds_cluster_instance" "aurora_instance_primary" {
-  # Unique identifier for the DB instance
+
+  # Unique identifier for the primary instance
   identifier = "aurora-postgres-instance-1"
 
-  # Link to the RDS cluster defined above
+  # Associate instance with the Aurora cluster
   cluster_identifier = aws_rds_cluster.aurora_cluster.id
 
-  # Serverless v2 class required
+  # Serverless v2 instance class
   instance_class = "db.serverless"
 
-  # Reuse the same engine & version to avoid conflicts
+  # Reuse cluster engine and version
   engine         = aws_rds_cluster.aurora_cluster.engine
   engine_version = aws_rds_cluster.aurora_cluster.engine_version
 
-  # Same subnet group as the cluster — ensures AZ coverage
+  # Subnet group used by the cluster
   db_subnet_group_name = aws_db_subnet_group.aurora_subnet_group.name
 
-  # Allow public access if needed — for testing only; disable in production
+  # Public access enabled for testing only
   publicly_accessible = true
 
-  # Enable Performance Insights for SQL-level metrics
+  # Enable Performance Insights
   performance_insights_enabled = true
 }
 
-######################################################
-# REPLICA INSTANCE — Reader for High Availability    #
-# This enables Multi-AZ failover and read scaling    #
-######################################################
+# ===============================================================================
+# AURORA CLUSTER INSTANCE - REPLICA (READER)
+# ===============================================================================
+# Read replica instance for high availability and read scaling.
+# ===============================================================================
+
 resource "aws_rds_cluster_instance" "aurora_instance_replica" {
-  identifier                   = "aurora-postgres-instance-2"
-  cluster_identifier           = aws_rds_cluster.aurora_cluster.id
-  instance_class               = "db.serverless"
-  engine                       = aws_rds_cluster.aurora_cluster.engine
-  engine_version               = aws_rds_cluster.aurora_cluster.engine_version
-  db_subnet_group_name         = aws_db_subnet_group.aurora_subnet_group.name
-  publicly_accessible          = true
+
+  # Unique identifier for the replica instance
+  identifier = "aurora-postgres-instance-2"
+
+  # Associate instance with the Aurora cluster
+  cluster_identifier = aws_rds_cluster.aurora_cluster.id
+
+  # Serverless v2 instance class
+  instance_class = "db.serverless"
+
+  # Reuse cluster engine and version
+  engine         = aws_rds_cluster.aurora_cluster.engine
+  engine_version = aws_rds_cluster.aurora_cluster.engine_version
+
+  # Subnet group used by the cluster
+  db_subnet_group_name = aws_db_subnet_group.aurora_subnet_group.name
+
+  # Public access enabled for testing only
+  publicly_accessible = true
+
+  # Enable Performance Insights
   performance_insights_enabled = true
 }
 
-#############################################################
-# DB Subnet Group — Required for Aurora to place ENIs       #
-# Must include at least two subnets in different AZs        #
-#############################################################
+# ===============================================================================
+# AURORA DB SUBNET GROUP
+# ===============================================================================
+# Defines subnets used by Aurora for ENI placement.
+# ===============================================================================
+
 resource "aws_db_subnet_group" "aurora_subnet_group" {
+
+  # Name of the DB subnet group
   name = "aurora-subnet-group"
 
-  # List of private subnets to deploy the Aurora ENIs into
+  # Private subnets spanning multiple availability zones
   subnet_ids = [
     aws_subnet.rds-subnet-1.id,
     aws_subnet.rds-subnet-2.id

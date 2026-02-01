@@ -1,56 +1,61 @@
-##########################################
-# Standalone PostgreSQL RDS Instance     #
-# NOT part of an Aurora Cluster          #
-##########################################
+# ===============================================================================
+# STANDALONE POSTGRESQL RDS INSTANCE
+# ===============================================================================
+# Provisions a standard PostgreSQL RDS instance. This is NOT Aurora and does
+# not use Aurora cluster semantics or Serverless capacity scaling.
+# ===============================================================================
 
 resource "aws_db_instance" "postgres_rds" {
-  # Unique identifier for this RDS instance
+
+  # Unique identifier for the RDS instance
   identifier = "postgres-rds-instance"
 
-  # Use standard PostgreSQL engine (NOT Aurora)
+  # Standard PostgreSQL engine (not Aurora)
   engine = "postgres"
 
-  # Specific PostgreSQL engine version — must match AWS-supported versions
-  engine_version = "15.12"
+  # PostgreSQL engine version supported by AWS - if blank default 
+  # version is used
+  
+  # engine_version = "15.12"
 
-  # Smallest burstable instance — great for test/dev
+  # Instance class sized for low-cost dev and test workloads
   instance_class = "db.t4g.micro"
 
-  # Amount of disk space in GB — 20 is the PostgreSQL minimum
+  # Allocated storage in GiB (20 GiB is the typical minimum for PostgreSQL)
   allocated_storage = 20
 
-  # Use general-purpose SSD (gp3 is newer and cheaper than gp2)
+  # Storage type for the DB volume
   storage_type = "gp3"
 
-  # Name of the default DB to create at launch
+  # Default database created at instance initialization
   db_name = "postgres"
 
-  # Master user credentials — should come from a random password generator
+  # Master credentials for the DB instance
   username = "postgres"
   password = random_password.postgres_password.result
 
-  # Subnet group must include at least 2 subnets in different AZs for Multi-AZ
+  # Subnet group must span multiple AZs for Multi-AZ deployments
   db_subnet_group_name = aws_db_subnet_group.rds_subnet_group.name
 
-  # Associate a security group to control inbound/outbound access
+  # Security groups controlling DB access
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
-  # Enable Multi-AZ deployment — AWS creates a standby in a different AZ
+  # Enable Multi-AZ standby for failover
   multi_az = true
 
-  # Allow public access (dangerous for prod, OK for dev/test with strict rules)
+  # Public access for dev only; avoid for production
   publicly_accessible = true
 
-  # Skip creating a final snapshot on deletion (safer to set false in production)
+  # Skip final snapshot on destroy (unsafe for production)
   skip_final_snapshot = true
 
-  # Enable automatic backups for 5 days
+  # Retain automated backups for N days
   backup_retention_period = 5
 
-  # Define when backups should happen (UTC timezone)
+  # Preferred backup window (UTC)
   backup_window = "07:00-09:00"
 
-  # Enable Performance Insights for deeper monitoring
+  # Enable Performance Insights for query-level metrics
   performance_insights_enabled = true
 
   tags = {
@@ -58,73 +63,82 @@ resource "aws_db_instance" "postgres_rds" {
   }
 }
 
-#####################################################################
-# RDS PostgreSQL Read Replica                                      #
-# Creates a replica of a standalone RDS instance for read-scaling  #
-# and failover protection                                          #
-#####################################################################
+# ===============================================================================
+# POSTGRESQL RDS READ REPLICA
+# ===============================================================================
+# Creates a read replica of the standalone RDS instance for read scaling and
+# additional redundancy. Many settings are inherited from the source DB.
+# ===============================================================================
+
 resource "aws_db_instance" "postgres_rds_replica" {
+
   # Unique identifier for the replica instance
   identifier = "postgres-rds-replica"
 
-  # REQUIRED: This links the replica to the source (primary) DB
+  # Link replica to the source (primary) DB instance
   replicate_source_db = aws_db_instance.postgres_rds.arn
 
-  # MUST match the engine type of the source DB (inherited, but must be declared)
+  # Engine must match the source DB engine
   engine = aws_db_instance.postgres_rds.engine
 
-  # Replica must use the same engine version as the source (or newer minor version in some cases)
+  # Engine version should match source (minor upgrades may be supported)
   engine_version = aws_db_instance.postgres_rds.engine_version
 
-  # Instance size — can be smaller or larger than the primary if performance needs differ
+  # Instance class for the replica
   instance_class = "db.t4g.micro"
 
-  # The same subnet group used by the source DB — ensures correct VPC placement
+  # Subnet group used for VPC placement
   db_subnet_group_name = aws_db_subnet_group.rds_subnet_group.name
 
-  # Security group for controlling inbound and outbound access to the replica
+  # Security groups controlling replica access
   vpc_security_group_ids = [aws_security_group.rds_sg.id]
 
-  # Make the replicate public if needed (not recommended for production)
+  # Public access for dev only; avoid for production
   publicly_accessible = true
 
-  # Enable Performance Insights for detailed query monitoring (extra cost)
+  # Enable Performance Insights for query-level metrics
   performance_insights_enabled = true
 
-  # Skip snapshot creation on deletion — good for dev, dangerous for prod
+  # Skip final snapshot on destroy (unsafe for production)
   skip_final_snapshot = true
 
-  ##########################################################
-  # 🔒 OMITTED PARAMETERS — Inherited from source DB:      #
-  # - allocated_storage                                    #
-  # - db_name                                              #
-  # - username & password                                  #
-  # - multi_az                                             #
-  # - backup_retention_period                              #
-  # - backup_window                                        #
-  # Replicas auto-sync with primary and don’t need these. #
-  ##########################################################
+  # -----------------------------------------------------------------------------
+  # INHERITED FROM SOURCE DB
+  # -----------------------------------------------------------------------------
+  # These values are inherited from the source instance and typically should not
+  # be set explicitly on the replica:
+  # - allocated_storage
+  # - db_name
+  # - username / password
+  # - multi_az
+  # - backup_retention_period
+  # - backup_window
+  # -----------------------------------------------------------------------------
 
   tags = {
     Name = "Postgres RDS Read Replica"
   }
 }
 
-##################################################
-# RDS Subnet Group — Controls where RDS ENIs go  #
-##################################################
+# ===============================================================================
+# RDS DB SUBNET GROUP
+# ===============================================================================
+# Defines the subnets used for RDS ENI placement. For high availability, the
+# subnet list must span at least two availability zones.
+# ===============================================================================
+
 resource "aws_db_subnet_group" "rds_subnet_group" {
+
+  # Name of the DB subnet group
   name = "rds-subnet-group"
 
-  # List of subnet IDs for the DB — must span multiple AZs for Multi-AZ
+  # Subnets used for DB placement (must span multiple AZs)
   subnet_ids = [
-    aws_subnet.rds-subnet-1.id, # Example: subnet in us-east-1a
-    aws_subnet.rds-subnet-2.id  # Example: subnet in us-east-1b
+    aws_subnet.rds-subnet-1.id,
+    aws_subnet.rds-subnet-2.id
   ]
 
   tags = {
     Name = "RDS Subnet Group"
   }
 }
-
-
