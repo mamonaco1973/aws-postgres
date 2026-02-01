@@ -100,7 +100,7 @@ echo " PGWEB Application:"
 echo "   http://${PGWEB_PUBLIC_DNS}"
 echo
 echo " RDS Instance:"
-echo "   ${RDS_ENPOINT}"
+echo "   ${RDS_ENDPOINT}"
 echo
 echo " Aurora Instance:"
 echo "   ${AURORA_ENDPOINT}"
