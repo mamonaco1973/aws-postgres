@@ -1,13 +1,27 @@
-# Deploying Postgres in AWS
+## Deploying PostgreSQL in AWS — Quick Start
 
+This project is a **quick start guide** to deploying PostgreSQL on AWS using
+fully managed database services. In just a few steps, you’ll provision working
+PostgreSQL backends using **Amazon RDS for PostgreSQL** and
+**Amazon Aurora PostgreSQL-Compatible Edition**—no manual database setup
+required.
 
-This project provides a comprehensive guide to deploying PostgreSQL on AWS using two fully managed database services: Amazon RDS for PostgreSQL and Amazon Aurora PostgreSQL-Compatible Edition. These services enable developers and organizations to set up, operate, and scale PostgreSQL databases in the cloud with ease, eliminating the need for manual infrastructure management.
+The goal here isn’t deep comparison or tuning. It’s to give you **immediately
+usable PostgreSQL endpoints** built with infrastructure as code, following AWS
+best practices for managed databases.
 
-Whether you're creating a lightweight development environment for testing or a robust, production-grade backend for mission-critical applications, AWS offers flexible deployment options tailored to diverse needs. 
+You’ll deploy:
+- A standalone PostgreSQL instance using Amazon RDS  
+- A highly available PostgreSQL cluster using Amazon Aurora  
 
-Each service—Amazon RDS for PostgreSQL and Amazon Aurora PostgreSQL-Compatible Edition—comes with distinct performance characteristics, feature sets, and cost profiles, allowing you to choose the best fit for your use case. Amazon RDS provides a straightforward, managed PostgreSQL experience with automated backups, patching, and scaling, while Aurora offers enhanced performance and high availability through its distributed storage architecture.
+To make the environment instantly testable, the project also loads the
+[Pagila](https://www.postgresql.org/ftp/projects/pgFoundry/dbsamples/pagila/)
+sample database—a realistic PostgreSQL dataset based on a fictional DVD rental
+store—so you can validate connectivity, run queries, and explore the database
+right away.
 
-As part of this project, we deploy the [Pagila](https://www.postgresql.org/ftp/projects/pgFoundry/dbsamples/pagila/) sample database, a well-known PostgreSQL dataset modeled after a fictional DVD rental store. This allows you to test and explore the functionality of your deployed database in a practical, real-world-inspired scenario.
+If you want a fast, repeatable way to stand up PostgreSQL on AWS for demos,
+learning, or prototyping, this project gets you there in minutes.
 
 ![diagram](aws-postgres.png)
 
@@ -53,8 +67,7 @@ When deploying PostgreSQL on AWS, Amazon RDS for PostgreSQL and Amazon Aurora Po
 * [An AWS Account](https://aws.amazon.com/console/)
 * [Install AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
 * [Install Latest Terraform](https://developer.hashicorp.com/terraform/install)
-* [postgres `pqsl` client](https://www.postgresql.org/download/linux/ubuntu/) - `apt install postgresql-client`
-* [pgAdmin4 client](https://www.pgadmin.org/download/)
+* Optionally - [pgAdmin4 client](https://www.pgadmin.org/download/)
 
 If this is your first time watching our content, we recommend starting with this video: [AWS + Terraform: Easy Setup](https://youtu.be/BCMQo0CB9wk). It provides a step-by-step guide to properly configure Terraform, Packer, and the AWS CLI.
 
@@ -90,39 +103,71 @@ Terraform has been successfully initialized!
 ```
 ## Build Results
 
-After applying the Terraform scripts, the following AWS resources will be created:
+After applying the Terraform configuration, the following AWS resources are
+provisioned.
 
-### VPC & Subnets
+### VPC & Networking
 - Custom VPC: `rds-vpc`
-- Two public subnets for database placement:
-  - `rds-subnet-1`
-  - `rds-subnet-2`
+- Two public subnets for highly available deployments:
+  - `rds-subnet-1` (AZ A)
+  - `rds-subnet-2` (AZ B)
 - Internet Gateway: `rds-igw`
-- Public route table with default route
+- Public route table with a default internet route
 
 ### Security Groups
-- Security Group: `rds_sg`  
-  (Allows access to PostgreSQL)
+- **Database Security Group**: `rds_sg`
+  - Allows inbound PostgreSQL traffic on port **5432**
+- **Web Security Group**: `pgweb_sg`
+  - Allows inbound HTTP traffic on port **80** for pgweb access
 
 ### Secrets & Credentials
-- Secrets Manager entries:
-  - `aurora_credentials`
-  - `postgres_credentials`
-- Secrets stored via `aws_secretsmanager_secret_version`
-- Random passwords generated using `random_password` for each engine
+- AWS Secrets Manager secrets:
+  - `aurora-credentials`
+  - `postgres-credentials`
+- Each secret contains:
+  - Database endpoint
+  - Admin username
+  - Randomly generated password
+- Credentials are generated at deploy time using `random_password` and stored
+  securely via `aws_secretsmanager_secret_version`
 
-### RDS PostgreSQL
-- Primary RDS instance: `postgres_rds`
-- Read Replica: `postgres_rds_replica`
-- Subnet group: `rds_subnet_group`
+### Amazon RDS for PostgreSQL
+- Primary RDS PostgreSQL instance
+- Read replica for failover and read scalability
+- RDS subnet group spanning both public subnets
+- Publicly accessible endpoint for demonstration and testing
 
-### Aurora PostgreSQL
-- Aurora Cluster: `aurora_cluster`
-- Writer instance: `aurora_instance_writer`
-- Reader instance: `aurora_instance_reader`
-- Subnet group: `aurora_subnet_group`
+### Amazon Aurora PostgreSQL
+- Aurora PostgreSQL–compatible cluster
+- Aurora Serverless v2 configuration
+- One writer instance and one reader instance
+- Aurora subnet group spanning both public subnets
 
-## pgAdmin4 Demo
+### pgweb Deployment (Web UI)
+- EC2 instance: `pgweb-deployment`
+  - Ubuntu 24.04
+  - Deployed into the same VPC
+- pgweb installed and managed via `systemd`
+- Exposes a lightweight PostgreSQL web UI over **HTTP (port 80)**
+- Automatically connects to both:
+  - RDS PostgreSQL
+  - Aurora PostgreSQL
+- Sample **Pagila** dataset is loaded into each database during instance
+  initialization
+
+### Validation Output
+- A helper validation script resolves and prints:
+  - The public pgweb URL
+  - The RDS PostgreSQL endpoint
+  - The Aurora PostgreSQL cluster endpoint
+
+## Test Clients
+
+A lightweight test EC2 instance is deployed with pgweb, a minimal web-based client for interacting with PostgreSQL databases.
+
+![pgadmin](pgweb.png)
+
+*Optionally* you can use the pgAdmin4 client.
 
 ![pgadmin](pgadmin.png)
 
