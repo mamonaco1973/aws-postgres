@@ -86,7 +86,7 @@ RDS_ENDPOINT=$(aws rds describe-db-instances \
   --region us-east-2 \
   --db-instance-identifier postgres-rds-instance \
   --query "DBInstances[0].Endpoint.Address" \
-  --output text
+  --output text)
 
 # ------------------------------------------------------------------------------
 # DISPLAY RESULTS
