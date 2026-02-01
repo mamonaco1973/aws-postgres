@@ -1,66 +1,86 @@
-# #!/bin/bash
+#!/bin/bash
+# ==============================================================================
+# FILE: validate.sh
+# ==============================================================================
+# PURPOSE:
+#   Resolves and prints the public pgweb endpoint for an EC2 instance
+#   providing a lightweight web UI for PostgreSQL database access.
+#
+# WHAT THIS SCRIPT DOES:
+#   1) Looks up a running EC2 instance by its Name tag.
+#   2) Extracts the instance's PublicDnsName.
+#   3) Fails fast if the instance has no public DNS (or is not found).
+#   4) Prints the resulting pgweb URL for quick validation.
+#
+# PREREQUISITES:
+#   - AWS CLI installed and configured with permissions for ec2:DescribeInstances
+#   - The target EC2 instance exists, is running, and has a public DNS name
+#     (i.e., it is in a public subnet with a public IPv4 / EIP).
+#
+# NOTES:
+#   - This script assumes pgweb is served from the web root ("/").
+#   - If multiple instances share the same Name tag, the first match is used.
+# ==============================================================================
 
-# # Set your region if needed
-# AWS_REGION="us-east-2"
+set -euo pipefail
 
-# # Cluster identifier from your Terraform
-# CLUSTER_ID="aurora-postgres-cluster"
+# ------------------------------------------------------------------------------
+# CONFIG
+# ------------------------------------------------------------------------------
+# AWS region where the pgweb EC2 instance is running.
+AWS_REGION="us-east-2"
 
-# # Get the primary endpoint (writer) from the cluster description
-# PRIMARY_ENDPOINT=$(aws rds describe-db-clusters \
-#   --region "$AWS_REGION" \
-#   --db-cluster-identifier "$CLUSTER_ID" \
-#   --query 'DBClusters[0].Endpoint' \
-#   --output text)
+# ------------------------------------------------------------------------------
+# RESOLVE PGWEB ENDPOINT
+# ------------------------------------------------------------------------------
+# Expected EC2 Name tag value for the pgweb host.
+PGWEB_INSTANCE_NAME="pgweb-deployment"
 
-# echo "NOTE: Primary Aurora Endpoint: $PRIMARY_ENDPOINT"
+# ------------------------------------------------------------------------------
+# FUNCTION: get_public_dns
+# ------------------------------------------------------------------------------
+# Returns the public DNS name for the first running EC2 instance whose Name tag
+# matches the provided value.
+#
+# Args:
+#   $1: instance_name  (value of the Name tag)
+#
+# Output:
+#   Writes the PublicDnsName to stdout (or "None" if not present).
+get_public_dns() {
+  local instance_name="$1"
 
-# # Name of the secret created in Terraform
-# SECRET_NAME="aurora-credentials"
+  aws ec2 describe-instances \
+    --region "${AWS_REGION}" \
+    --filters \
+      "Name=tag:Name,Values=${instance_name}" \
+      "Name=instance-state-name,Values=running" \
+    --query 'Reservations[0].Instances[0].PublicDnsName' \
+    --output text
+}
 
-# # Retrieve and parse the secret
-# SECRET_JSON=$(aws secretsmanager get-secret-value \
-#   --region "$AWS_REGION" \
-#   --secret-id "$SECRET_NAME" \
-#   --query 'SecretString' \
-#   --output text)
+# Resolve public DNS name for the pgweb host.
+PGWEB_PUBLIC_DNS=$(get_public_dns "${PGWEB_INSTANCE_NAME}")
 
-# # Extract user and password using jq
-# USER=$(echo "$SECRET_JSON" | jq -r .user)
-# PASSWORD=$(echo "$SECRET_JSON" | jq -r .password)
+# ------------------------------------------------------------------------------
+# VALIDATION
+# ------------------------------------------------------------------------------
+# Fail fast if the instance is missing a public DNS name (not found, stopped,
+# or running without a public interface).
+if [[ -z "${PGWEB_PUBLIC_DNS}" || "${PGWEB_PUBLIC_DNS}" == "None" ]]; then
+  echo "ERROR: ${PGWEB_INSTANCE_NAME} has no public DNS name"
+  exit 1
+fi
 
-# rm -f -r /tmp/db_load.log
+# ------------------------------------------------------------------------------
+# DISPLAY RESULTS
+# ------------------------------------------------------------------------------
 
-# echo "NOTE: Loading 'pagila' data into Aurora"
-
-# PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d postgres -f ./01-rds/data/pagila-db.sql >> /tmp/db_load.log
-# PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-schema.sql >> /tmp/db_load.log
-# PGPASSWORD=$PASSWORD psql -h $PRIMARY_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-data.sql >> /tmp/db_load.log
-
-# RDS_ENDPOINT=$(aws rds describe-db-instances \
-#   --region us-east-2 \
-#   --db-instance-identifier postgres-rds-instance \
-#   --query "DBInstances[0].Endpoint.Address" \
-#   --output text)
-
-# echo "NOTE: Primary RDS Endpoint: $RDS_ENDPOINT"
-
-# # Name of the secret created in Terraform
-# SECRET_NAME="postgres-credentials"
-
-# # Retrieve and parse the secret
-# SECRET_JSON=$(aws secretsmanager get-secret-value \
-#   --region "$AWS_REGION" \
-#   --secret-id "$SECRET_NAME" \
-#   --query 'SecretString' \
-#   --output text)
-
-# # Extract user and password using jq
-# USER=$(echo "$SECRET_JSON" | jq -r .user)
-# PASSWORD=$(echo "$SECRET_JSON" | jq -r .password)
-
-# echo "NOTE: Loading 'pagila' data into RDS"
-
-# PGPASSWORD=$PASSWORD psql -h $RDS_ENDPOINT -U postgres -d postgres -f ./01-rds/data/pagila-db.sql >> /tmp/db_load.log
-# PGPASSWORD=$PASSWORD psql -h $RDS_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-schema.sql >> /tmp/db_load.log
-# PGPASSWORD=$PASSWORD psql -h $RDS_ENDPOINT -U postgres -d pagila -f ./01-rds/data/pagila-data.sql >> /tmp/db_load.log
+echo "=========================================================================="
+echo " PROJECT ENDPOINTS"
+echo "=========================================================================="
+echo
+echo " PGWEB:"
+echo "   http://${PGWEB_PUBLIC_DNS}"
+echo
+echo "=========================================================================="
