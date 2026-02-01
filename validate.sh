@@ -72,19 +72,36 @@ if [[ -z "${PGWEB_PUBLIC_DNS}" || "${PGWEB_PUBLIC_DNS}" == "None" ]]; then
   exit 1
 fi
 
-# Cluster identifier from your Terraform
+# ------------------------------------------------------------------------------
+# DATABASE ENDPOINT RESOLUTION
+# ------------------------------------------------------------------------------
+# Resolve database connection endpoints used by pgweb.
+#
+# These endpoints are NOT required for pgweb to start, but are printed for
+# convenience so the operator can easily copy/paste them when connecting
+# pgweb to either backend.
+#
+# Both endpoints are resolved dynamically from AWS to avoid hardcoding
+# DNS names that may change across environments.
+# ------------------------------------------------------------------------------
+
+# Aurora PostgreSQL cluster identifier (Terraform-managed)
+# This should match the aws_rds_cluster identifier exactly.
 CLUSTER_ID="aurora-postgres-cluster"
 
-# Get the primary endpoint (writer) from the cluster description
+# Resolve the Aurora PostgreSQL writer endpoint.
+# pgweb should always connect to the writer endpoint when targeting Aurora.
 AURORA_ENDPOINT=$(aws rds describe-db-clusters \
-  --region "$AWS_REGION" \
-  --db-cluster-identifier "$CLUSTER_ID" \
+  --region "${AWS_REGION}" \
+  --db-cluster-identifier "${CLUSTER_ID}" \
   --query 'DBClusters[0].Endpoint' \
   --output text)
 
+# Resolve the standalone RDS PostgreSQL instance endpoint.
+# This is the primary connection address for the RDS-backed deployment.
 RDS_ENDPOINT=$(aws rds describe-db-instances \
-  --region us-east-2 \
-  --db-instance-identifier postgres-rds-instance \
+  --region "${AWS_REGION}" \
+  --db-instance-identifier "postgres-rds-instance" \
   --query "DBInstances[0].Endpoint.Address" \
   --output text)
 
