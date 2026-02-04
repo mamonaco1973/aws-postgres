@@ -137,7 +137,7 @@ resource "aws_rds_cluster_instance" "aurora_instance_replica" {
 resource "aws_db_subnet_group" "aurora_subnet_group" {
 
   # Name of the DB subnet group
-  name = "aurora-subnet-group"
+  name = "aurora-postgres-subnet-group"
 
   # Private subnets spanning multiple availability zones
   subnet_ids = [
@@ -146,6 +146,6 @@ resource "aws_db_subnet_group" "aurora_subnet_group" {
   ]
 
   tags = {
-    Name = "Aurora Subnet Group"
+    Name = "aurora-postgres-subnet-group"
   }
 }
