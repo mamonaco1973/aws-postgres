@@ -130,7 +130,7 @@ resource "aws_db_instance" "postgres_rds_replica" {
 resource "aws_db_subnet_group" "rds_subnet_group" {
 
   # Name of the DB subnet group
-  name = "rds-subnet-group"
+  name = "postgres-subnet-group"
 
   # Subnets used for DB placement (must span multiple AZs)
   subnet_ids = [
@@ -139,6 +139,6 @@ resource "aws_db_subnet_group" "rds_subnet_group" {
   ]
 
   tags = {
-    Name = "RDS Subnet Group"
+    Name = "postgres-subnet-group"
   }
 }

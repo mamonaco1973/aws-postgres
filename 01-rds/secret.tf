@@ -21,7 +21,7 @@ resource "random_password" "aurora_password" {
 
 # Define a Secrets Manager secret for Aurora credentials
 resource "aws_secretsmanager_secret" "aurora_credentials" {
-  name                    = "aurora-credentials"
+  name                    = "aurora-postgres-credentials"
   description             = "root credentials for example Aurora Postgres Instance"
   recovery_window_in_days = 0
 }
