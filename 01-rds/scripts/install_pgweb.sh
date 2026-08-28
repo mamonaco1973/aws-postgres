@@ -100,7 +100,7 @@ PGPASSWORD=$PGPASSWORD psql -h $PGENDPOINT -U postgres -d pagila \
 # ------------------------------------------------------------------------------
 
 cd /tmp
-wget https://github.com/sosedoff/pgweb/releases/download/v0.11.12/pgweb_linux_amd64.zip
+wget https://github.com/sosedoff/pgweb/releases/download/v0.17.0/pgweb_linux_amd64.zip
 unzip pgweb_linux_amd64.zip >> /root/pgweb.log 2>&1
 chmod +x pgweb_linux_amd64
 sudo mv pgweb_linux_amd64 /usr/local/bin/pgweb

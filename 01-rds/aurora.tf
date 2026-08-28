@@ -20,7 +20,7 @@ resource "aws_rds_cluster" "aurora_cluster" {
   engine = "aurora-postgresql"
 
   # Engine version supporting Aurora Serverless v2
-  engine_version = "15.12"
+  # engine_version = "18.4"
 
   # Serverless v2 requires provisioned engine mode
   engine_mode = "provisioned"
