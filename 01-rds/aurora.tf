@@ -59,10 +59,24 @@ resource "aws_rds_cluster" "aurora_cluster" {
   # -----------------------------------------------------------------------------
   # SERVERLESS V2 SCALING
   # -----------------------------------------------------------------------------
-  # Aurora Capacity Units (ACUs) auto-scaling configuration
+  # Aurora Capacity Units (ACUs) auto-scaling configuration.
+  #
+  # min_capacity = 0 is scale-to-zero: after the idle window below the cluster
+  # pauses and compute billing stops entirely. Storage still bills. This is the
+  # thing RDS has no answer to at all — an idle RDS instance costs the same as
+  # a busy one, because there is an EC2 instance underneath it either way.
+  #
+  # The trade is a cold start. A query against a paused cluster has to wait for
+  # compute to come back, so this belongs in dev and demo clusters, not behind
+  # a latency-sensitive endpoint.
   serverlessv2_scaling_configuration {
-    min_capacity = 0.5
+    min_capacity = 0.0
     max_capacity = 4.0
+
+    # Idle time before pausing. 300s is the floor AWS allows; the ceiling is
+    # 86400. Kept at the floor so the pause is actually demonstrable rather
+    # than something you would have to wait an hour to film.
+    seconds_until_auto_pause = 300
   }
 }
 
