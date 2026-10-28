@@ -1,203 +1,181 @@
-## Deploying PostgreSQL in AWS — Quick Start
+# PostgreSQL on AWS: Amazon RDS and Aurora, side by side
 
-This project is a **quick start guide** to deploying PostgreSQL on AWS using
-fully managed database services. In just a few steps, you’ll provision working
-PostgreSQL backends using **Amazon RDS for PostgreSQL** and
-**Amazon Aurora PostgreSQL-Compatible Edition**—no manual database setup
-required.
+Both of AWS's managed PostgreSQL engines, built from one Terraform stack and
+loaded with the same data. **Amazon RDS for PostgreSQL** runs as a Multi-AZ
+primary with a read replica; **Aurora PostgreSQL** runs as a Serverless v2
+cluster with a writer and a reader. A **pgweb** host gives you a browser
+client for both, and both are loaded with the
+[Pagila](https://www.postgresql.org/ftp/projects/pgFoundry/dbsamples/pagila/) sample database, so you can
+compare them on the same queries.
 
-The goal here isn’t deep comparison or tuning. It’s to give you **immediately
-usable PostgreSQL endpoints** built with infrastructure as code, following AWS
-best practices for managed databases.
+![pgweb](pgweb.png)
 
-You’ll deploy:
-- A standalone PostgreSQL instance using Amazon RDS  
-- A highly available PostgreSQL cluster using Amazon Aurora  
+| Piece | Where | Role |
+|---|---|---|
+| **RDS primary** | `rds-subnet-1`/`-2` | `postgres-rds-instance`, `db.t4g.micro`, 20 GB gp3, Multi-AZ, Performance Insights |
+| **Multi-AZ standby** | the other AZ | synchronous copy of the primary; no endpoint |
+| **RDS read replica** | `rds-subnet-1`/`-2` | `postgres-rds-replica`, asynchronous copy with its own endpoint |
+| **Aurora cluster** | `rds-subnet-1`/`-2` | `aurora-postgres-cluster`, Serverless v2 (0–4 ACU, pauses after 5 idle minutes), writer `aurora-postgres-instance-1`, reader `aurora-postgres-instance-2` |
+| **pgweb-deployment** | `rds-subnet-1` | Ubuntu 24.04, `t3.medium`; loads Pagila into both engines, then serves pgweb on port 80 |
+| **Secrets Manager** | regional | `postgres-credentials` and `aurora-postgres-credentials`: user, password, endpoint |
 
-To make the environment instantly testable with [pgweb](https://github.com/sosedoff/pgweb), the project also loads the
-[Pagila](https://www.postgresql.org/ftp/projects/pgFoundry/dbsamples/pagila/)
-sample database—a realistic PostgreSQL dataset based on a fictional DVD rental
-store—so you can validate connectivity, run queries, and explore the database
-right away.
+## Architecture
 
-If you want a fast, repeatable way to stand up PostgreSQL on AWS for demos,
-learning, or prototyping, this project gets you there in minutes.
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="architecture-dark.svg">
+  <img alt="A browser reaches one pgweb host over HTTP, which connects to both PostgreSQL engines on port 5432. The Aurora PostgreSQL writer and reader both sit on one shared cluster volume, and the reader is the failover target. The RDS for PostgreSQL primary copies asynchronously to a read replica with its own endpoint and mirrors synchronously to a Multi-AZ standby that has no endpoint. The admin passwords are in Secrets Manager." src="architecture-light.svg">
+</picture>
 
-![diagram](aws-postgres.png)
+Regenerate with `python3 make_diagram.py`.
 
-## What You'll Learn
+- **`01-rds/`** is the whole stack: the VPC (`rds-vpc`, 10.0.0.0/24) with two
+  public subnets (`rds-subnet-1` in us-east-2a, `rds-subnet-2` in us-east-2b),
+  the security groups, both database engines, the credentials in Secrets
+  Manager, and the pgweb host.
+- **`01-rds/data/`** holds the Pagila load scripts (`pagila-db.sql`,
+  `pagila-schema.sql`, `pagila-data.sql`) and the sample queries.
 
-- The core differences between RDS PostgreSQL and Aurora PostgreSQL
-- How to provision each database using Terraform
-- The distinction between Aurora readers and RDS read replicas
-- Best practices for security, scalability, and infrastructure-as-code deployment
+## How the two engines differ
 
-## Comparison of RDS for PostgreSQL and Aurora PostgreSQL
+| | RDS for PostgreSQL | Aurora PostgreSQL |
+|---|---|---|
+| Copies of the data | three: primary, standby, replica | one cluster volume, shared by every instance |
+| What you can read | the primary and the replica, each on its own endpoint | the writer on the cluster endpoint, the reader on the reader endpoint |
+| The standby | real and billed, but no endpoint and not readable | none: the reader is the failover target |
+| Compute | fixed instance class (`db.t4g.micro`) | Serverless v2, 0–4 ACU; pauses after 5 idle minutes |
 
-When deploying PostgreSQL on AWS, Amazon RDS for PostgreSQL and Amazon Aurora PostgreSQL-Compatible Edition are two fully managed options. Both simplify database management, but they differ in architecture, performance, and cost. This document compares them to help you choose the right service for your application.
+### When the writer fails
 
-### Overview
+| Action | Engine | What happens |
+|---|---|---|
+| **Failover** (`aws rds failover-db-cluster`) | Aurora | The reader and the writer trade places. The cluster endpoint follows the new writer. Nothing to copy, and it's reversible: fail over again to swap back. |
+| **Reboot with failover** (`aws rds reboot-db-instance --force-failover`) | RDS | The standby takes over. The endpoint name stays the same, and a new standby is built behind it. |
+| **Promote** (`aws rds promote-read-replica`) | RDS | The replica breaks off into its own database. Replication stops for good; there's no un-promote. |
 
-- **Amazon RDS for PostgreSQL**: A managed service offering standard PostgreSQL with automated backups, patching, and scaling. Ideal for cost-effective, general-purpose workloads.
+## How it boots
 
-- **Amazon Aurora PostgreSQL**: A high-performance, PostgreSQL-compatible engine with distributed storage, designed for scalability and enterprise-grade applications.
+1. Terraform builds the network, both engines and the secrets, generating a
+   24-character password for each engine's `postgres` user.
+2. The pgweb host installs the PostgreSQL client, clones this repository, and
+   loads Pagila into both engines' writer endpoints with `psql`. Progress is
+   in `/root/db_load.log`.
+3. It installs pgweb 0.17.0 as a systemd service on port 80. pgweb starts
+   without a connection; you pick the engine when you connect.
 
-## Key Differences
+## Security groups
 
-| **Aspect**                     | **Amazon RDS for PostgreSQL**                                                                                                    | **Amazon Aurora PostgreSQL-Compatible**                                                                                                                |
-|--------------------------------|----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------|
-| **Architecture and Storage**   | Standard PostgreSQL with EBS storage; storage provisioned manually (up to 64 TB) and scaling may involve downtime               | Distributed storage across multiple AZs; auto-scaling up to 128 TB with no downtime                                                                    |
-| **Performance**                | Reliable for standard workloads; limited by EBS and single-instance architecture                                                | Up to 5× throughput; features like parallel query execution                                                                                             |
-| **High Availability & Replication** | Multi-AZ deployments; failover in 60–120 seconds; asynchronous read replicas                                                     | Faster failover (<30 s); up to 15 low-latency read replicas; Aurora Global Database for cross-region replication                                        |
-| **Scalability**                | Vertical scaling and read replicas; storage scaling may involve downtime                                                        | Seamless compute and storage scaling; Aurora Serverless supports variable workloads                                                                     |
-| **Cost**                       | More affordable for smaller, predictable workloads                                                                              | Higher cost reflecting advanced performance; Aurora Serverless can reduce costs for variable usage                                                     |
-| **Features & Compatibility**   | Full PostgreSQL compatibility with most extensions                                                                              | PostgreSQL-compatible but may lack some extensions; unique features such as Backtrack and parallel query                                               |
-| **Backup & Recovery**          | Automated backups (up to 35 days) and point-in-time recovery; slower restores for large databases                               | Faster backups and restores; Backtrack enables near-instant point-in-time recovery                                                                     |
-| **Use Cases**                  | Best for cost-conscious, general-purpose workloads and development environments                                                 | Ideal for high-performance, mission-critical workloads; Serverless option for variable demand                                                          |
+```
+internet ─80───▶ pgweb-deployment
+internet ─5432─▶ RDS primary, read replica, Aurora writer and reader
+```
 
-
-## Choosing the Right Service
-
-- **Choose RDS if**: You need a cost-effective, fully compatible PostgreSQL solution for standard workloads.
-- **Choose Aurora if**: Your application demands high performance, scalability, or advanced features like global replication.
-
+Both groups (`http-sg` and `rds-sg`) allow `0.0.0.0/0`. Every database is
+publicly accessible, so you can also connect a local client such as pgAdmin
+or `psql` to any endpoint with the `postgres` password.
 
 ## Prerequisites
 
 * [An AWS Account](https://aws.amazon.com/console/)
-* [Install AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
-* [Install Latest Terraform](https://developer.hashicorp.com/terraform/install)
-* Optionally - [pgAdmin4 client](https://www.pgadmin.org/download/)
+* [Install AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+* [Install Terraform](https://developer.hashicorp.com/terraform/install)
+* [Install jq](https://jqlang.github.io/jq/download/)
 
-If this is your first time watching our content, we recommend starting with this video: [AWS + Terraform: Easy Setup](https://youtu.be/BCMQo0CB9wk). It provides a step-by-step guide to properly configure Terraform, Packer, and the AWS CLI.
+If this is your first time watching our content, we recommend starting with
+this video: [AWS + Terraform: Easy Setup](https://youtu.be/BCMQo0CB9wk).
 
-## Download this Repository
+## Deploy
 
 ```bash
 git clone https://github.com/mamonaco1973/aws-postgres.git
 cd aws-postgres
+./apply.sh       # one phase: VPC, RDS, Aurora, secrets, pgweb host
 ```
 
-## Build the Code
+Everything deploys to `us-east-2`. `apply.sh` ends by running `validate.sh`,
+which prints the pgweb URL and both writer endpoints:
 
-Run [check_env](check_env.sh) then run [apply](apply.sh).
+```
+==========================================================================
+ PROJECT ENDPOINTS
+==========================================================================
+
+ PGWEB Application:
+   http://ec2-203-0-113-10.us-east-2.compute.amazonaws.com
+
+ RDS Instance:
+   postgres-rds-instance.abc123xyz.us-east-2.rds.amazonaws.com
+
+ Aurora Instance:
+   aurora-postgres-cluster.cluster-abc123xyz.us-east-2.rds.amazonaws.com
+
+==========================================================================
+```
+
+## Try it
+
+1. Get an engine's password:
+
+   ```bash
+   aws secretsmanager get-secret-value --secret-id postgres-credentials \
+     --query SecretString --output text | jq -r .password
+   ```
+
+   Use `aurora-postgres-credentials` for Aurora. The user is `postgres` for
+   both.
+
+2. Open the pgweb URL and connect with the engine's endpoint from
+   `validate.sh`, user `postgres`, that password, database `pagila`, and SSL
+   mode `require`. Disconnect and connect again to switch engines.
+3. Run the same queries on both engines (`01-rds/data/`):
+
+   ```sql
+   SELECT
+       f.title AS film_title,
+       a.first_name || ' ' || a.last_name AS actor_name
+   FROM film f
+   JOIN film_actor fa ON f.film_id = fa.film_id
+   JOIN actor a ON fa.actor_id = a.actor_id
+   ORDER BY f.title, actor_name
+   LIMIT 20;
+   ```
+
+   ```sql
+   SELECT
+       f.title,
+       STRING_AGG(a.first_name || ' ' || a.last_name, ', ') AS actor_names
+   FROM film f
+   JOIN film_actor fa ON f.film_id = fa.film_id
+   JOIN actor a ON fa.actor_id = a.actor_id
+   GROUP BY f.title
+   ORDER BY f.title
+   LIMIT 10;
+   ```
+
+4. Optionally, connect pgAdmin from your own machine the same way:
+
+   ![pgAdmin](pgadmin.png)
+
+5. Try a failover from the table above, then reconnect.
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| pgweb doesn't load | The host is still loading Pagila. `aws ssm start-session --target <instance-id>`, then `sudo tail /root/db_load.log` and `systemctl status pgweb`. |
+| `pagila` is missing | Check `/root/db_load.log` for the `psql` output. |
+| The first Aurora connection after a quiet spell is slow | The Aurora instances pause after 5 idle minutes at 0 ACU; the first connection resumes them. |
+| pgweb can't connect | Set SSL mode to `require`, and use the password from that engine's secret; the two engines have different passwords. |
+
+## Teardown
 
 ```bash
-~/aws-postgres$ ./apply.sh
-NOTE: Validating that required commands are found in your PATH.
-NOTE: aws is found in the current PATH.
-NOTE: psql is found in the current PATH.
-NOTE: terraform is found in the current PATH.
-NOTE: jq is found in the current PATH.
-NOTE: All required commands are available.
-NOTE: Checking AWS cli connection.
-NOTE: Successfully logged into AWS.
-NOTE: Building Database Instances.
-Initializing the backend...
-Initializing provider plugins...
-- Reusing previous version of hashicorp/aws from the dependency lock file
-- Reusing previous version of hashicorp/random from the dependency lock file
-- Using previously-installed hashicorp/aws v6.0.0
-- Using previously-installed hashicorp/random v3.7.2
-Terraform has been successfully initialized!
-```
-## Build Results
-
-After applying the Terraform configuration, the following AWS resources are
-provisioned.
-
-### VPC & Networking
-- Custom VPC: `rds-vpc`
-- Two public subnets for highly available deployments:
-  - `rds-subnet-1` (AZ A)
-  - `rds-subnet-2` (AZ B)
-- Internet Gateway: `rds-igw`
-- Public route table with a default internet route
-
-### Security Groups
-- **Database Security Group**: `rds_sg`
-  - Allows inbound PostgreSQL traffic on port **5432**
-- **Web Security Group**: `pgweb_sg`
-  - Allows inbound HTTP traffic on port **80** for pgweb access
-
-### Secrets & Credentials
-- AWS Secrets Manager secrets:
-  - `aurora-credentials`
-  - `postgres-credentials`
-- Each secret contains:
-  - Database endpoint
-  - Admin username
-  - Randomly generated password
-- Credentials are generated at deploy time using `random_password` and stored
-  securely via `aws_secretsmanager_secret_version`
-
-### Amazon RDS for PostgreSQL
-- Primary RDS PostgreSQL instance
-- Read replica for failover and read scalability
-- RDS subnet group spanning both public subnets
-- Publicly accessible endpoint for demonstration and testing
-
-### Amazon Aurora PostgreSQL
-- Aurora PostgreSQL–compatible cluster
-- Aurora Serverless v2 configuration
-- One writer instance and one reader instance
-- Aurora subnet group spanning both public subnets
-
-### pgweb Deployment (Web UI)
-- EC2 instance: `pgweb-deployment`
-  - Ubuntu 24.04
-  - Deployed into the same VPC
-- pgweb installed and managed via `systemd`
-- Exposes a lightweight PostgreSQL web UI over **HTTP (port 80)**
-- Automatically connects to both:
-  - RDS PostgreSQL
-  - Aurora PostgreSQL
-- Sample **Pagila** dataset is loaded into each database during instance
-  initialization
-
-### Validation Output
-- A helper validation script resolves and prints:
-  - The public [pgweb](https://github.com/sosedoff/pgweb) URL
-  - The RDS PostgreSQL endpoint
-  - The Aurora PostgreSQL cluster endpoint
-
-## Test Clients
-
-A lightweight test EC2 instance is deployed with [pgweb](https://github.com/sosedoff/pgweb), a minimal web-based client for interacting with PostgreSQL databases.
-
-![pgadmin](pgweb.png)
-
-*Optionally* you can use the pgAdmin4 client.
-
-![pgadmin](pgadmin.png)
-
-Query 1:
-```sql
--- Select the film title and full actor name for each film
-SELECT
-    f.title AS film_title,                                      -- Get the film's title from the 'film' table
-    a.first_name || ' ' || a.last_name AS actor_name            -- Concatenate actor's first and last name as 'actor_name'
-FROM
-    film f                                                      -- From the 'film' table aliased as 'f'
-JOIN film_actor fa ON f.film_id = fa.film_id                    -- Join with 'film_actor' to link films to their actors
-JOIN actor a ON fa.actor_id = a.actor_id                        -- Join with 'actor' table to get actor details
-ORDER BY f.title, actor_name                                    -- Order the results alphabetically by film title, then actor name
-LIMIT 20;                                                       -- Return only the first 20 results
+./destroy.sh     # destroys the whole stack; no final snapshots, secrets deleted immediately
 ```
 
-Query 2:
+## Notes
 
-```sql
--- Select film titles and a comma-separated list of all actors in each film
-SELECT
-    f.title,                                                              -- Get the film's title from the 'film' table
-    STRING_AGG(a.first_name || ' ' || a.last_name, ', ') AS actor_names  -- Combine all actor full names into one comma-separated string
-FROM
-    film f                                                                -- From the 'film' table aliased as 'f'
-JOIN film_actor fa ON f.film_id = fa.film_id                              -- Join with 'film_actor' to link each film to its actors
-JOIN actor a ON fa.actor_id = a.actor_id                                  -- Join with 'actor' table to get actor names
-GROUP BY f.title                                                           -- Group results by film title so each row is one film
-ORDER BY f.title                                                           -- Sort the results alphabetically by film title
-LIMIT 20;                                                                  -- Return only the first 10 films
-```
-
+- **Lab only.** The databases and pgweb are open to the internet, pgweb runs
+  over plain HTTP with no sign-in of its own, and the admin passwords are in
+  the host's user data. The host's IAM role also has `AmazonSSMFullAccess`.
+  Put the databases in private subnets and restrict the security groups for
+  anything more.
